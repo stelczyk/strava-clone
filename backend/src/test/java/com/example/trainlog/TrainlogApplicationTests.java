@@ -1,10 +1,8 @@
 package com.example.trainlog;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest
-class TrainlogApplicationTests {
+class TrainlogApplicationTests extends AbstractIntegrationTest {
 
 	@Test
 	void contextLoads() {
