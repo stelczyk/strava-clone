@@ -3,8 +3,39 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContai
 import L from 'leaflet'
 import {
   fetchActivities, fetchActivity, uploadActivity,
-  type ActivityListItem, type Activity,
+  type ActivityListItem, type Activity, type TrackPoint,
 } from './api'
+
+type Split = { distanceKm: number; seconds: number }
+
+function splits(samples: TrackPoint[]): Split[] {
+  const pts = samples.filter((s): s is TrackPoint & { dist: number } => s.dist != null)
+  if (pts.length < 2) return []
+
+  const out: Split[] = []
+  let target = 1000
+  let prevMark = pts[0].t
+
+  for (let i = 1; i < pts.length; i++) {
+    const prev = pts[i - 1]
+    const cur = pts[i]
+    while (cur.dist >= target) {
+      const frac = (target - prev.dist) / (cur.dist - prev.dist)
+      const cross = prev.t + frac * (cur.t - prev.t)
+      out.push({ distanceKm: 1, seconds: (cross - prevMark) / 1000 })
+      prevMark = cross
+      target += 1000
+    }
+  }
+
+  const last = pts[pts.length - 1]
+  const leftover = last.dist - (target - 1000)
+  if (leftover > 1) {
+    out.push({ distanceKm: leftover / 1000, seconds: (last.t - prevMark) / 1000 })
+  }
+
+  return out
+}
 
 function fmtDuration(sec: number | null): string {
   if (sec == null) return '?'
@@ -118,6 +149,11 @@ export default function App() {
     .filter((s) => s.lat != null && s.lng != null)
     .map((s) => [s.lat!, s.lng!] as [number, number])
 
+  const splitData = selected ? splits(selected.samples) : []
+  const fullTimes = splitData.filter((s) => s.distanceKm === 1).map((s) => s.seconds)
+  const fastest = fullTimes.length ? Math.min(...fullTimes) : 0
+  const slowest = fullTimes.length ? Math.max(...fullTimes) : 0
+
   return (
     <div className="app">
       <header className="topbar">
@@ -172,6 +208,32 @@ export default function App() {
                 <Metric value={selected.avgHeartRate ?? '?'} unit="bpm" label="tętno" accent />
                 <Metric value={elevationGain(selected.samples)} unit="m" label="przewyższenie" />
               </div>
+
+              {splitData.length > 0 && (
+                <div className="splits">
+                  <h3>Splity</h3>
+                  <table>
+                    <tbody>
+                      {splitData.map((s, i) => {
+                        const partial = s.distanceKm < 1
+                        const pace = s.seconds / s.distanceKm
+                        const width = `${Math.min(100, (fastest / pace) * 100)}%`
+                        const cls = partial ? 'split partial'
+                          : s.seconds === fastest ? 'split fast'
+                          : s.seconds === slowest ? 'split slow'
+                          : 'split'
+                        return (
+                          <tr key={i} className={cls}>
+                            <td className="km">{partial ? s.distanceKm.toFixed(2) : i + 1}</td>
+                            <td className="bar-cell"><span className="bar" style={{ width }} /></td>
+                            <td className="pace">{fmtPace(s.distanceKm * 1000, s.seconds)}<span className="unit"> /km</span></td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
 
               <div className="panels">
                 <div className="panel">

@@ -233,3 +233,18 @@ body {
   color: var(--muted);
   padding: 48px 0;
 }
+
+.splits { margin: 24px 0; }
+.splits h3 { font: 700 13px var(--cond); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+.splits table { width: 100%; border-collapse: collapse; }
+.splits tr { border-bottom: 1px solid var(--line); }
+.splits td { padding: 6px 8px; }
+.km { width: 3ch; font: 700 15px var(--cond); font-variant-numeric: tabular-nums; }
+.bar-cell { width: 100%; }
+.bar { display: block; height: 10px; border-radius: 2px; background: var(--muted); }
+.pace { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pace .unit { color: var(--muted); font-size: 12px; }
+.split.fast .bar { background: var(--pulse); }
+.split.slow .bar { background: #c9ccc6; }
+.split.partial { color: var(--muted); }
+.split.partial .bar { background: #d7dad4; }
