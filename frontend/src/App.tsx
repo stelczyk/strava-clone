@@ -1,10 +1,28 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
-import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, Legend } from 'recharts'
+import { LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, Legend } from 'recharts'
 import L from 'leaflet'
 import {
   fetchActivities, fetchActivity, uploadActivity,
   type ActivityListItem, type Activity, type TrackPoint,
 } from './api'
+
+const HR_MAX = 195
+const ZONE_BOUNDS = [0.6, 0.7, 0.8, 0.9]
+const ZONE_COLORS = ['#1f6f5c', '#7fae3a', '#e0a92e', '#e5722b', '#e1274c']
+
+function hrZones(samples: TrackPoint[]): number[] {
+  const zones = [0, 0, 0, 0, 0]
+  for (let i = 1; i < samples.length; i++) {
+    const prev = samples[i - 1]
+    const cur = samples[i]
+    if (prev.hr == null) continue
+    const dt = (cur.t - prev.t) / 1000
+    const pct = prev.hr / HR_MAX
+    const z = ZONE_BOUNDS.filter((b) => pct >= b).length
+    zones[z] += dt
+  }
+  return zones
+}
 
 type Split = { distanceKm: number; seconds: number }
 
@@ -154,6 +172,10 @@ export default function App() {
   const fastest = fullTimes.length ? Math.min(...fullTimes) : 0
   const slowest = fullTimes.length ? Math.max(...fullTimes) : 0
 
+  const zoneData = selected
+    ? hrZones(selected.samples).map((sec, i) => ({ zone: `Z${i + 1}`, sec }))
+    : []
+
   return (
     <div className="app">
       <header className="topbar">
@@ -255,6 +277,20 @@ export default function App() {
                     <TrackMap points={track} />
                   </div>
                 )}
+                <div className="panel">
+                  <h3>Strefy tętna</h3>
+                  <ResponsiveContainer width="100%" height={380}>
+                    <BarChart data={zoneData} margin={{ top: 8, right: 8, bottom: 24, left: 8 }}>
+                      <CartesianGrid stroke="#eef0ee" vertical={false} />
+                      <XAxis dataKey="zone" tick={{ fontSize: 12 }} />
+                      <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => fmtDuration(v)} width={54} />
+                      <Tooltip formatter={(v) => fmtDuration(Number(v))} />
+                      <Bar dataKey="sec" name="czas">
+                        {zoneData.map((_, i) => <Cell key={i} fill={ZONE_COLORS[i]} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </>
           )}
