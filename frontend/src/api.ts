@@ -1,3 +1,5 @@
+const API = import.meta.env.VITE_API_URL ?? '/api'
+
 export type ActivityListItem = {
   id: number
   sport: string
@@ -8,7 +10,7 @@ export type ActivityListItem = {
 }
 
 export async function fetchActivities(): Promise<ActivityListItem[]> {
-  const res = await fetch('/api/activities')
+  const res = await fetch(`${API}/activities`)
   if (!res.ok) throw new Error('Nie udało się pobrać listy')
   return res.json()
 }
@@ -16,7 +18,7 @@ export async function fetchActivities(): Promise<ActivityListItem[]> {
 export async function uploadActivity(file: File): Promise<void> {
   const form = new FormData()
   form.append('file', file)
-  const res = await fetch('/api/activities', { method: 'POST', body: form })
+  const res = await fetch(`${API}/activities`, { method: 'POST', body: form })
   if (!res.ok) throw new Error('Upload nie powiódł się')
 }
 
@@ -42,7 +44,7 @@ export type Activity = {
 }
 
 export async function fetchActivity(id: number): Promise<Activity> {
-  const res = await fetch(`/api/activities/${id}`)
+  const res = await fetch(`${API}/activities/${id}`)
   if (!res.ok) throw new Error('Nie udało się pobrać treningu')
   return res.json()
 }

@@ -1,11 +1,15 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/trainlog
-    username: trainlog
-    password: trainlog
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/trainlog}
+    username: ${DB_USERNAME:trainlog}
+    password: ${DB_PASSWORD:trainlog}
   jpa:
     hibernate:
       ddl-auto: validate
     show-sql: true
   flyway:
     enabled: true
+
+app:
+  cors:
+    allowed-origins: http://localhost:5173
