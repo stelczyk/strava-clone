@@ -16,6 +16,7 @@ dist/
 /data/
 *.fit
 *.FIT
+!backend/src/test/resources/sample.fit
 
 .idea/
 *.iml
