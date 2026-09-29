@@ -2,8 +2,8 @@ import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, Legend } from 'recharts'
 import L from 'leaflet'
 import {
-  fetchActivities, fetchActivity, uploadActivity,
-  type ActivityListItem, type Activity, type TrackPoint,
+  fetchActivities, fetchActivity, uploadActivity, fetchRecords,
+  type ActivityListItem, type Activity, type TrackPoint, type PersonalRecords,
 } from './api'
 
 const HR_MAX = 195
@@ -118,6 +118,7 @@ function TrackMap({ points }: { points: [number, number][] }) {
 export default function App() {
   const [activities, setActivities] = useState<ActivityListItem[]>([])
   const [selected, setSelected] = useState<Activity | null>(null)
+  const [records, setRecords] = useState<PersonalRecords | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -129,8 +130,17 @@ export default function App() {
     }
   }
 
+  async function loadRecords() {
+    try {
+      setRecords(await fetchRecords())
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
   useEffect(() => {
     load()
+    loadRecords()
   }, [])
 
   async function onUpload(e: ChangeEvent<HTMLInputElement>) {
@@ -141,6 +151,7 @@ export default function App() {
     try {
       await uploadActivity(file)
       await load()
+      await loadRecords()
     } catch (err) {
       setError((err as Error).message)
     } finally {
@@ -179,7 +190,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <h1 className="wordmark">TrainLog</h1>
+        <h1 className="wordmark" onClick={() => setSelected(null)}>TrainLog</h1>
         <label className="btn">
           {busy ? 'Wgrywanie…' : '+ Wgraj .fit'}
           <input type="file" accept=".fit" onChange={onUpload} disabled={busy} hidden />
@@ -215,7 +226,28 @@ export default function App() {
 
         <main>
           {!selected || !chartData ? (
-            <p className="empty">Wybierz aktywność z listy, żeby zobaczyć szczegóły.</p>
+            <div>
+              {records && (
+                <>
+                  <p className="side-title">Rekordy (bieg)</p>
+                  <div className="metrics">
+                    {records.bestEfforts.map((e) => (
+                      <Metric
+                        key={e.distanceMeters}
+                        value={e.timeMillis != null ? fmtDuration(e.timeMillis / 1000) : '-'}
+                        label={`${e.distanceMeters / 1000} km`}
+                      />
+                    ))}
+                    <Metric
+                      value={records.longestRunMeters != null ? (records.longestRunMeters / 1000).toFixed(2) : '-'}
+                      unit="km"
+                      label="najdłuższy"
+                    />
+                  </div>
+                </>
+              )}
+              <p className="empty">Wybierz aktywność z listy, żeby zobaczyć szczegóły.</p>
+            </div>
           ) : (
             <>
               <div className="detail-head">

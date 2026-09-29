@@ -48,3 +48,12 @@ export async function fetchActivity(id: number): Promise<Activity> {
   if (!res.ok) throw new Error('Nie udało się pobrać treningu')
   return res.json()
 }
+
+export type BestEffort = { distanceMeters: number; timeMillis: number | null }
+export type PersonalRecords = { bestEfforts: BestEffort[]; longestRunMeters: number | null }
+
+export async function fetchRecords(): Promise<PersonalRecords> {
+  const res = await fetch(`${API}/records`)
+  if (!res.ok) throw new Error('Nie udało się pobrać rekordów')
+  return res.json()
+}
