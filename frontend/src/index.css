@@ -235,6 +235,16 @@ body {
   padding: 48px 0;
 }
 
+.topbar-actions { display: flex; gap: 12px; align-items: center; }
+.logout { background: none; border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px; cursor: pointer; font: inherit; color: var(--muted); }
+
+.auth { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+.auth-card { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 320px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 28px; }
+.auth-title { color: var(--muted); margin: 0; }
+.auth-card input { padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; font: inherit; }
+.auth-card input:focus { outline: 2px solid var(--pulse); outline-offset: 0; }
+.auth-switch { background: none; border: none; color: var(--muted); cursor: pointer; font: inherit; padding: 4px; }
+
 .splits { margin: 24px 0; }
 .splits h3 { font: 700 13px var(--cond); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
 .splits table { width: 100%; border-collapse: collapse; }

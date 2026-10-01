@@ -20,3 +20,6 @@ spring:
 app:
   cors:
     allowed-origins: http://localhost:5173
+  jwt:
+    secret: ${JWT_SECRET:dev-secret-change-me-min-32-bytes-0123456789}
+    expiration-ms: 86400000

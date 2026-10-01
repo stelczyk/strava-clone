@@ -1,10 +1,52 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, Legend } from 'recharts'
 import L from 'leaflet'
 import {
   fetchActivities, fetchActivity, uploadActivity, fetchRecords,
+  login, register, logout, getToken,
   type ActivityListItem, type Activity, type TrackPoint, type PersonalRecords,
 } from './api'
+
+function LoginScreen({ onAuthed }: { onAuthed: () => void }) {
+  const [mode, setMode] = useState<'login' | 'register'>('login')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function submit(e: FormEvent) {
+    e.preventDefault()
+    setBusy(true)
+    setError(null)
+    try {
+      if (mode === 'register') await register(username, password)
+      await login(username, password)
+      onAuthed()
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="auth">
+      <form className="auth-card" onSubmit={submit}>
+        <h1 className="wordmark">TrainLog</h1>
+        <p className="auth-title">{mode === 'login' ? 'Zaloguj się' : 'Załóż konto'}</p>
+        <input placeholder="login" value={username} onChange={(e) => setUsername(e.target.value)} />
+        <input type="password" placeholder="hasło" value={password} onChange={(e) => setPassword(e.target.value)} />
+        {error && <p className="error">{error}</p>}
+        <button className="btn" type="submit" disabled={busy}>
+          {busy ? '...' : mode === 'login' ? 'Zaloguj' : 'Zarejestruj'}
+        </button>
+        <button type="button" className="auth-switch" onClick={() => setMode(mode === 'login' ? 'register' : 'login')}>
+          {mode === 'login' ? 'Nie masz konta? Zarejestruj się' : 'Masz konto? Zaloguj się'}
+        </button>
+      </form>
+    </div>
+  )
+}
 
 const HR_MAX = 195
 const ZONE_BOUNDS = [0.6, 0.7, 0.8, 0.9]
@@ -116,6 +158,7 @@ function TrackMap({ points }: { points: [number, number][] }) {
 }
 
 export default function App() {
+  const [authed, setAuthed] = useState(!!getToken())
   const [activities, setActivities] = useState<ActivityListItem[]>([])
   const [selected, setSelected] = useState<Activity | null>(null)
   const [records, setRecords] = useState<PersonalRecords | null>(null)
@@ -139,9 +182,18 @@ export default function App() {
   }
 
   useEffect(() => {
+    if (!authed) return
     load()
     loadRecords()
-  }, [])
+  }, [authed])
+
+  function onLogout() {
+    logout()
+    setSelected(null)
+    setActivities([])
+    setRecords(null)
+    setAuthed(false)
+  }
 
   async function onUpload(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -187,14 +239,21 @@ export default function App() {
     ? hrZones(selected.samples).map((sec, i) => ({ zone: `Z${i + 1}`, sec }))
     : []
 
+  if (!authed) {
+    return <LoginScreen onAuthed={() => setAuthed(true)} />
+  }
+
   return (
     <div className="app">
       <header className="topbar">
         <h1 className="wordmark" onClick={() => setSelected(null)}>TrainLog</h1>
-        <label className="btn">
-          {busy ? 'Wgrywanie…' : '+ Wgraj .fit'}
-          <input type="file" accept=".fit" onChange={onUpload} disabled={busy} hidden />
-        </label>
+        <div className="topbar-actions">
+          <label className="btn">
+            {busy ? 'Wgrywanie…' : '+ Wgraj .fit'}
+            <input type="file" accept=".fit" onChange={onUpload} disabled={busy} hidden />
+          </label>
+          <button className="logout" onClick={onLogout}>Wyloguj</button>
+        </div>
       </header>
 
       {error && <p className="error">{error}</p>}
