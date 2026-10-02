@@ -32,6 +32,9 @@ public class Activity {
     @Column(columnDefinition = "jsonb", nullable = false)
     private List<TrackPoint> samples;
 
+    @Column(name = "user_id")
+    private Long userId;
+
     protected Activity() {
     }
 
@@ -81,5 +84,13 @@ public class Activity {
 
     public List<TrackPoint> getSamples() {
         return samples;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 }

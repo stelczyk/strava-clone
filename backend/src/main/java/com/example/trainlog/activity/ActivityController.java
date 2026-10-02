@@ -2,6 +2,7 @@ package com.example.trainlog.activity;
 
 import com.example.trainlog.fit.FitParser;
 import com.example.trainlog.fit.ParsedActivity;
+import com.example.trainlog.user.CurrentUser;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -22,9 +23,11 @@ public class ActivityController {
 
     private final ActivityRepository repository;
     private final FitParser fitParser = new FitParser();
+    private final CurrentUser currentUser;
 
-    public ActivityController(ActivityRepository repository) {
+    public ActivityController(ActivityRepository repository, CurrentUser currentUser) {
         this.repository = repository;
+        this.currentUser = currentUser;
     }
 
     @PostMapping
@@ -49,6 +52,7 @@ public class ActivityController {
                 parsed.totalElapsedSeconds(),
                 parsed.avgHeartRate(),
                 points);
+        activity.setUserId(currentUser.id());
 
         Activity saved = repository.save(activity);
 
@@ -63,7 +67,7 @@ public class ActivityController {
 
     @GetMapping
     public List<ActivityListItem> list() {
-        return repository.findAll().stream()
+        return repository.findByUserId(currentUser.id()).stream()
                 .map(a -> new ActivityListItem(
                         a.getId(),
                         a.getSport(),
@@ -76,8 +80,12 @@ public class ActivityController {
 
     @GetMapping("/{id}")
     public Activity get(@PathVariable Long id) {
-        return repository.findById(id)
+        Activity activity = repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        if (!currentUser.id().equals(activity.getUserId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
+        return activity;
     }
 
     public record ActivityListItem(Long id, String sport, Instant startTime,

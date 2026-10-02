@@ -1,5 +1,6 @@
 package com.example.trainlog.activity;
 
+import com.example.trainlog.user.CurrentUser;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -15,14 +16,16 @@ public class RecordsController {
     private static final int[] DISTANCES = {1000, 5000, 10000};
 
     private final ActivityRepository repository;
+    private final CurrentUser currentUser;
 
-    public RecordsController(ActivityRepository repository) {
+    public RecordsController(ActivityRepository repository, CurrentUser currentUser) {
         this.repository = repository;
+        this.currentUser = currentUser;
     }
 
     @GetMapping
     public RecordsResponse records() {
-        List<Activity> runs = repository.findAll().stream()
+        List<Activity> runs = repository.findByUserId(currentUser.id()).stream()
                 .filter(a -> "running".equals(a.getSport()))
                 .toList();
 
