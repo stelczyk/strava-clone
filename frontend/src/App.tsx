@@ -160,14 +160,19 @@ function TrackMap({ points }: { points: [number, number][] }) {
 export default function App() {
   const [authed, setAuthed] = useState(!!getToken())
   const [activities, setActivities] = useState<ActivityListItem[]>([])
+  const [page, setPage] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+  const [sport, setSport] = useState('')
   const [selected, setSelected] = useState<Activity | null>(null)
   const [records, setRecords] = useState<PersonalRecords | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function load() {
+  async function load(p = page, s = sport) {
     try {
-      setActivities(await fetchActivities())
+      const res = await fetchActivities(p, s || undefined)
+      setActivities(res.items)
+      setTotalPages(res.totalPages)
     } catch (e) {
       setError((e as Error).message)
     }
@@ -181,11 +186,8 @@ export default function App() {
     }
   }
 
-  useEffect(() => {
-    if (!authed) return
-    load()
-    loadRecords()
-  }, [authed])
+  useEffect(() => { if (authed) loadRecords() }, [authed])
+  useEffect(() => { if (authed) load() }, [authed, page, sport])
 
   function onLogout() {
     logout()
@@ -202,7 +204,8 @@ export default function App() {
     setError(null)
     try {
       await uploadActivity(file)
-      await load()
+      setPage(0)
+      await load(0, sport)
       await loadRecords()
     } catch (err) {
       setError((err as Error).message)
@@ -261,25 +264,41 @@ export default function App() {
       <div className="layout">
         <aside>
           <p className="side-title">Aktywności</p>
+          <select className="sport-filter" value={sport} onChange={(e) => { setSport(e.target.value); setPage(0) }}>
+            <option value="">wszystkie sporty</option>
+            <option value="running">bieganie</option>
+            <option value="cycling">rower</option>
+            <option value="hiking">wędrówka</option>
+            <option value="swimming">pływanie</option>
+          </select>
           {activities.length === 0 ? (
             <p className="empty">Brak aktywności. Wgraj pierwszy plik .fit.</p>
           ) : (
-            <ul className="act-list">
-              {activities.map((a) => (
-                <li key={a.id}>
-                  <button
-                    className={selected?.id === a.id ? 'act active' : 'act'}
-                    onClick={() => onSelect(a.id)}
-                  >
-                    <div className="sport">{a.sport}</div>
-                    <div className="meta">
-                      {a.distanceMeters ? (a.distanceMeters / 1000).toFixed(2) : '?'} km
-                      {a.startTime && ` - ${fmtDate(a.startTime)}`}
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <>
+              <ul className="act-list">
+                {activities.map((a) => (
+                  <li key={a.id}>
+                    <button
+                      className={selected?.id === a.id ? 'act active' : 'act'}
+                      onClick={() => onSelect(a.id)}
+                    >
+                      <div className="sport">{a.sport}</div>
+                      <div className="meta">
+                        {a.distanceMeters ? (a.distanceMeters / 1000).toFixed(2) : '?'} km
+                        {a.startTime && ` - ${fmtDate(a.startTime)}`}
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {totalPages > 1 && (
+                <div className="pager">
+                  <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0}>←</button>
+                  <span>{page + 1} / {totalPages}</span>
+                  <button onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}>→</button>
+                </div>
+              )}
+            </>
           )}
         </aside>
 

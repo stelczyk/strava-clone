@@ -44,8 +44,17 @@ export type ActivityListItem = {
   avgHeartRate: number | null
 }
 
-export async function fetchActivities(): Promise<ActivityListItem[]> {
-  const res = await fetch(`${API}/activities`, { headers: authHeaders() })
+export type ActivityPage = {
+  items: ActivityListItem[]
+  page: number
+  totalPages: number
+  totalItems: number
+}
+
+export async function fetchActivities(page = 0, sport?: string): Promise<ActivityPage> {
+  const params = new URLSearchParams({ page: String(page), size: '20' })
+  if (sport) params.set('sport', sport)
+  const res = await fetch(`${API}/activities?${params}`, { headers: authHeaders() })
   if (!res.ok) throw new Error('Nie udało się pobrać listy')
   return res.json()
 }

@@ -3,6 +3,10 @@ package com.example.trainlog.activity;
 import com.example.trainlog.fit.FitParser;
 import com.example.trainlog.fit.ParsedActivity;
 import com.example.trainlog.user.CurrentUser;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -66,17 +70,23 @@ public class ActivityController {
     public record ActivitySummary(Long id, String sport, Double distanceMeters, int samplesCount) {}
 
     @GetMapping
-    public List<ActivityListItem> list() {
-        return repository.findByUserId(currentUser.id()).stream()
-                .map(a -> new ActivityListItem(
-                        a.getId(),
-                        a.getSport(),
-                        a.getStartTime(),
-                        a.getTotalDistanceMeters(),
-                        a.getTotalElapsedSeconds(),
-                        a.getAvgHeartRate()))
+    public ActivityPage list(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String sport) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "startTime"));
+        Long userId = currentUser.id();
+        Page<ActivityListView> result = (sport == null || sport.isBlank())
+                ? repository.findByUserId(userId, pageable)
+                : repository.findByUserIdAndSport(userId, sport, pageable);
+        List<ActivityListItem> items = result.getContent().stream()
+                .map(v -> new ActivityListItem(v.getId(), v.getSport(), v.getStartTime(),
+                        v.getTotalDistanceMeters(), v.getTotalElapsedSeconds(), v.getAvgHeartRate()))
                 .toList();
+        return new ActivityPage(items, result.getNumber(), result.getTotalPages(), result.getTotalElements());
     }
+
+    public record ActivityPage(List<ActivityListItem> items, int page, int totalPages, long totalItems) {}
 
     @GetMapping("/{id}")
     public Activity get(@PathVariable Long id) {
