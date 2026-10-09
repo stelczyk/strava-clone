@@ -2,9 +2,9 @@ import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'r
 import { LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, Legend } from 'recharts'
 import L from 'leaflet'
 import {
-  fetchActivities, fetchActivity, uploadActivity, fetchRecords,
+  fetchActivities, fetchActivity, uploadActivity, fetchRecords, fetchWeekly,
   login, register, logout, getToken,
-  type ActivityListItem, type Activity, type TrackPoint, type PersonalRecords,
+  type ActivityListItem, type Activity, type TrackPoint, type PersonalRecords, type WeeklyStat,
 } from './api'
 
 function LoginScreen({ onAuthed }: { onAuthed: () => void }) {
@@ -157,6 +157,18 @@ function TrackMap({ points }: { points: [number, number][] }) {
   return <div ref={ref} className="map" />
 }
 
+const SPORT_COLORS: Record<string, string> = {
+  running: '#1f6f5c', cycling: '#3b7dd8', hiking: '#e0a92e', swimming: '#26b3c9',
+  training: '#8a5cf6', fitness_equipment: '#8a5cf6',
+}
+const SPORT_LABELS: Record<string, string> = {
+  running: 'bieganie', cycling: 'rower', hiking: 'góry', swimming: 'pływanie',
+  training: 'siłownia', fitness_equipment: 'siłownia',
+}
+const SPORT_ORDER = ['running', 'cycling', 'hiking', 'swimming', 'training', 'fitness_equipment']
+const rank = (s: string) => { const i = SPORT_ORDER.indexOf(s); return i === -1 ? 99 : i }
+const sportLabel = (s: string) => SPORT_LABELS[s] ?? s
+
 export default function App() {
   const [authed, setAuthed] = useState(!!getToken())
   const [activities, setActivities] = useState<ActivityListItem[]>([])
@@ -165,6 +177,7 @@ export default function App() {
   const [sport, setSport] = useState('')
   const [selected, setSelected] = useState<Activity | null>(null)
   const [records, setRecords] = useState<PersonalRecords | null>(null)
+  const [weekly, setWeekly] = useState<WeeklyStat[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -186,7 +199,15 @@ export default function App() {
     }
   }
 
-  useEffect(() => { if (authed) loadRecords() }, [authed])
+  async function loadWeekly() {
+    try {
+      setWeekly(await fetchWeekly())
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  useEffect(() => { if (authed) { loadRecords(); loadWeekly() } }, [authed])
   useEffect(() => { if (authed) load() }, [authed, page, sport])
 
   function onLogout() {
@@ -194,6 +215,7 @@ export default function App() {
     setSelected(null)
     setActivities([])
     setRecords(null)
+    setWeekly([])
     setAuthed(false)
   }
 
@@ -207,6 +229,7 @@ export default function App() {
       setPage(0)
       await load(0, sport)
       await loadRecords()
+      await loadWeekly()
     } catch (err) {
       setError((err as Error).message)
     } finally {
@@ -232,6 +255,20 @@ export default function App() {
   const track = selected?.samples
     .filter((s) => s.lat != null && s.lng != null)
     .map((s) => [s.lat!, s.lng!] as [number, number])
+
+  const weekMap = new Map<string, Record<string, number | string>>()
+  for (const w of weekly) {
+    const row = weekMap.get(w.weekStart) ?? {
+      label: new Date(w.weekStart).toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit' }),
+    }
+    row[w.sport] = Math.round(w.timeSeconds / 60)
+    if (w.distanceMeters && w.distanceMeters > 0) {
+      row[`${w.sport}__km`] = Number((w.distanceMeters / 1000).toFixed(1))
+    }
+    weekMap.set(w.weekStart, row)
+  }
+  const weeklyData = [...weekMap.values()]
+  const sportsPresent = [...new Set(weekly.map((w) => w.sport))].sort((a, b) => rank(a) - rank(b))
 
   const splitData = selected ? splits(selected.samples) : []
   const fullTimes = splitData.filter((s) => s.distanceKm === 1).map((s) => s.seconds)
@@ -282,7 +319,7 @@ export default function App() {
                       className={selected?.id === a.id ? 'act active' : 'act'}
                       onClick={() => onSelect(a.id)}
                     >
-                      <div className="sport">{a.sport}</div>
+                      <div className="sport">{sportLabel(a.sport)}</div>
                       <div className="meta">
                         {a.distanceMeters ? (a.distanceMeters / 1000).toFixed(2) : '?'} km
                         {a.startTime && ` - ${fmtDate(a.startTime)}`}
@@ -324,12 +361,34 @@ export default function App() {
                   </div>
                 </>
               )}
+              {weekly.length > 0 && (
+                <div className="panel">
+                  <h3>Ostatnie tygodnie</h3>
+                  <ResponsiveContainer width="100%" height={260}>
+                    <BarChart data={weeklyData} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+                      <CartesianGrid stroke="#eef0ee" vertical={false} />
+                      <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+                      <YAxis tick={{ fontSize: 12 }} label={{ value: 'czas [min]', angle: -90, position: 'insideLeft', fontSize: 12 }} />
+                      <Tooltip formatter={(v, n, item) => {
+                        const mins = Number(v)
+                        const time = mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}min` : `${mins} min`
+                        const km = (item?.payload as Record<string, number>)?.[`${n}__km`]
+                        return [km ? `${time} (${km} km)` : time, SPORT_LABELS[n as string] ?? n]
+                      }} />
+                      <Legend formatter={(v) => SPORT_LABELS[v as string] ?? v} />
+                      {sportsPresent.map((s) => (
+                        <Bar key={s} dataKey={s} stackId="a" fill={SPORT_COLORS[s] ?? '#999'} name={s} />
+                      ))}
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
               <p className="empty">Wybierz aktywność z listy, żeby zobaczyć szczegóły.</p>
             </div>
           ) : (
             <>
               <div className="detail-head">
-                <h2>{selected.sport}</h2>
+                <h2>{sportLabel(selected.sport)}</h2>
                 <span className="date">{fmtDate(selected.startTime)}</span>
               </div>
 

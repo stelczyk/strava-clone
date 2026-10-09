@@ -101,3 +101,11 @@ export async function fetchRecords(): Promise<PersonalRecords> {
   if (!res.ok) throw new Error('Nie udało się pobrać rekordów')
   return res.json()
 }
+
+export type WeeklyStat = { weekStart: string; sport: string; distanceMeters: number | null; timeSeconds: number; activityCount: number }
+
+export async function fetchWeekly(): Promise<WeeklyStat[]> {
+  const res = await fetch(`${API}/stats/weekly`, { headers: authHeaders() })
+  if (!res.ok) throw new Error('Nie udało się pobrać statystyk')
+  return res.json()
+}
