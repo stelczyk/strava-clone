@@ -15,13 +15,31 @@ function authHeaders(): Record<string, string> {
   return t ? { Authorization: `Bearer ${t}` } : {}
 }
 
+function ensureAuthed(res: Response) {
+  if (res.status === 401 || res.status === 403) {
+    logout()
+    location.reload()
+    throw new Error('Sesja wygasła')
+  }
+}
+
+async function errorMessage(res: Response, fallback: string): Promise<string> {
+  try {
+    const p = await res.json()
+    if (p.errors) return Object.values(p.errors).join('. ')
+    return p.detail ?? p.title ?? fallback
+  } catch {
+    return fallback
+  }
+}
+
 export async function login(username: string, password: string): Promise<void> {
   const res = await fetch(`${API}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password }),
   })
-  if (!res.ok) throw new Error('Błędny login lub hasło')
+  if (!res.ok) throw new Error(await errorMessage(res, 'Błędny login lub hasło'))
   const data = await res.json()
   try { localStorage.setItem(TOKEN_KEY, data.token) } catch { /* ignore */ }
 }
@@ -32,7 +50,7 @@ export async function register(username: string, password: string): Promise<void
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password }),
   })
-  if (!res.ok) throw new Error(res.status === 409 ? 'Login zajęty' : 'Rejestracja nie powiodła się')
+  if (!res.ok) throw new Error(await errorMessage(res, 'Rejestracja nie powiodła się'))
 }
 
 export type ActivityListItem = {
@@ -55,6 +73,7 @@ export async function fetchActivities(page = 0, sport?: string): Promise<Activit
   const params = new URLSearchParams({ page: String(page), size: '20' })
   if (sport) params.set('sport', sport)
   const res = await fetch(`${API}/activities?${params}`, { headers: authHeaders() })
+  ensureAuthed(res)
   if (!res.ok) throw new Error('Nie udało się pobrać listy')
   return res.json()
 }
@@ -63,6 +82,7 @@ export async function uploadActivity(file: File): Promise<void> {
   const form = new FormData()
   form.append('file', file)
   const res = await fetch(`${API}/activities`, { method: 'POST', headers: authHeaders(), body: form })
+  ensureAuthed(res)
   if (!res.ok) throw new Error('Upload nie powiódł się')
 }
 
@@ -89,6 +109,7 @@ export type Activity = {
 
 export async function fetchActivity(id: number): Promise<Activity> {
   const res = await fetch(`${API}/activities/${id}`, { headers: authHeaders() })
+  ensureAuthed(res)
   if (!res.ok) throw new Error('Nie udało się pobrać treningu')
   return res.json()
 }
@@ -98,6 +119,7 @@ export type PersonalRecords = { bestEfforts: BestEffort[]; longestRunMeters: num
 
 export async function fetchRecords(): Promise<PersonalRecords> {
   const res = await fetch(`${API}/records`, { headers: authHeaders() })
+  ensureAuthed(res)
   if (!res.ok) throw new Error('Nie udało się pobrać rekordów')
   return res.json()
 }
@@ -106,6 +128,7 @@ export type WeeklyStat = { weekStart: string; sport: string; distanceMeters: num
 
 export async function fetchWeekly(): Promise<WeeklyStat[]> {
   const res = await fetch(`${API}/stats/weekly`, { headers: authHeaders() })
+  ensureAuthed(res)
   if (!res.ok) throw new Error('Nie udało się pobrać statystyk')
   return res.json()
 }
